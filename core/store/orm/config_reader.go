@@ -90,6 +90,9 @@ type ConfigReader interface {
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
 	SetEthGasPriceDefault(value *big.Int) error
+	TelemetryIngressLogging() bool
+	TelemetryIngressServerPubKey() string
+	TelemetryIngressURL() *url.URL
 	TLSCertPath() string
 	TLSHost() string
 	TLSKeyPath() string
