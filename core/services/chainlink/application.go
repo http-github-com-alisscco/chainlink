@@ -118,6 +118,7 @@ type ChainlinkApplication struct {
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
 	explorerClient           synchronization.ExplorerClient
+	telemetryIngressClient   synchronization.TelemetryIngressClient
 	subservices              []service.Service
 	HealthChecker            health.Checker
 	logger                   *logger.Logger
@@ -146,6 +147,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	scryptParams := utils.GetScryptParams(config)
 	keyStore := keystore.New(store.DB, scryptParams)
 
+	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
@@ -155,7 +157,13 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		statsPusher = synchronization.NewStatsPusher(store.DB, explorerClient)
 		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
 	}
-	subservices = append(subservices, explorerClient, statsPusher)
+
+	// Default to Explorer if both URLs are set
+	if config.ExplorerURL() == nil && config.TelemetryIngressURL() != nil {
+		telemetryIngressClient = synchronization.NewTelemetryIngressClient(config.TelemetryIngressURL(), config.TelemetryIngressServerPubKey(), keyStore.CSA(), config.TelemetryIngressLogging())
+		monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
+	}
+	subservices = append(subservices, explorerClient, statsPusher, telemetryIngressClient)
 
 	if store.Config.DatabaseBackupMode() != orm.DatabaseBackupModeNone && store.Config.DatabaseBackupFrequency() > 0 {
 		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", store.Config.DatabaseBackupFrequency())
