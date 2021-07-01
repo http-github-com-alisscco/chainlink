@@ -29,6 +29,7 @@ type (
 
 	balanceMonitor struct {
 		store          *store.Store
+		logger         *logger.Logger
 		ethKeyStore    *keystore.Eth
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
@@ -61,6 +62,10 @@ func (bm *balanceMonitor) Start() error {
 	return nil
 }
 
+func (bm *balanceMonitor) SetLogger(logger *logger.Logger) {
+	bm.logger = logger
+}
+
 // Close shuts down the BalanceMonitor, should not be used after this
 func (bm *balanceMonitor) Close() error {
 	return bm.sleeperTask.Stop()
@@ -83,7 +88,7 @@ func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head models.Head)
 }
 
 func (bm *balanceMonitor) checkBalance(head *models.Head) {
-	logger.Debugw("BalanceMonitor: signalling balance worker")
+	bm.logger.Debugw("BalanceMonitor: signalling balance worker")
 	bm.sleeperTask.WakeUp()
 }
 
@@ -103,12 +108,12 @@ func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Ad
 	}
 
 	if oldBal == nil {
-		logger.Infow(fmt.Sprintf("ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
+		bm.logger.Infow(fmt.Sprintf("ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
 		return
 	}
 
 	if ethBal.Cmp(oldBal) != 0 {
-		logger.Infow(fmt.Sprintf("New ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
+		bm.logger.Infow(fmt.Sprintf("New ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
 	}
 }
 
@@ -167,10 +172,11 @@ func (w *worker) checkAccountBalance(k ethkey.Key) {
 func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 	return nil
 }
-func (*NullBalanceMonitor) Start() error   { return nil }
-func (*NullBalanceMonitor) Close() error   { return nil }
-func (*NullBalanceMonitor) Ready() error   { return nil }
-func (*NullBalanceMonitor) Healthy() error { return nil }
+func (*NullBalanceMonitor) Start() error             { return nil }
+func (*NullBalanceMonitor) Close() error             { return nil }
+func (*NullBalanceMonitor) SetLogger(*logger.Logger) {}
+func (*NullBalanceMonitor) Ready() error             { return nil }
+func (*NullBalanceMonitor) Healthy() error           { return nil }
 func (*NullBalanceMonitor) Connect(head *models.Head) error {
 	return nil
 }

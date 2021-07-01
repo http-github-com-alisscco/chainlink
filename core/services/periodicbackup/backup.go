@@ -124,6 +124,10 @@ func (backup *databaseBackup) Close() error {
 	})
 }
 
+func (backup *databaseBackup) SetLogger(logger *logger.Logger) {
+	backup.logger = logger
+}
+
 func (backup *databaseBackup) frequencyIsTooSmall() bool {
 	return backup.frequency < minBackupFrequency
 }

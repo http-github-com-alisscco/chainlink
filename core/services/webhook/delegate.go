@@ -97,6 +97,8 @@ func (s pseudoService) Close() error {
 	return nil
 }
 
+func (s pseudoService) SetLogger(*logger.Logger) {}
+
 type webhookJobRunner struct {
 	specsByUUID   map[uuid.UUID]registeredJob
 	muSpecsByUUID sync.RWMutex

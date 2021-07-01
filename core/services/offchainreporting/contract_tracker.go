@@ -60,7 +60,7 @@ type (
 		contractCaller   *offchainaggregator.OffchainAggregatorCaller
 		logBroadcaster   log.Broadcaster
 		jobID            int32
-		logger           logger.Logger
+		logger           *logger.Logger
 		db               OCRContractTrackerDB
 		gdb              *gorm.DB
 		blockTranslator  BlockTranslator
@@ -102,7 +102,7 @@ func NewOCRContractTracker(
 	ethClient eth.Client,
 	logBroadcaster log.Broadcaster,
 	jobID int32,
-	logger logger.Logger,
+	logger *logger.Logger,
 	gdb *gorm.DB,
 	db OCRContractTrackerDB,
 	chain *chains.Chain,
@@ -173,6 +173,10 @@ func (t *OCRContractTracker) Close() error {
 		close(t.chConfigs)
 		return nil
 	})
+}
+
+func (t *OCRContractTracker) SetLogger(logger *logger.Logger) {
+	t.logger = logger
 }
 
 // Connect conforms to HeadTrackable

@@ -114,7 +114,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.ethClient,
 		d.logBroadcaster,
 		jobSpec.ID,
-		*logger.Default,
+		logger.Default,
 		d.db,
 		ocrdb,
 		d.chain,

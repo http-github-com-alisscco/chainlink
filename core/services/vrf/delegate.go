@@ -98,7 +98,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 
 	logListener := &listener{
 		cfg:            d.cfg,
-		l:              *l,
+		logger:         l,
 		logBroadcaster: d.lb,
 		db:             d.db,
 		txm:            d.txm,
@@ -124,7 +124,7 @@ var (
 
 type listener struct {
 	cfg            Config
-	l              logger.Logger
+	logger         *logger.Logger
 	abi            abi.ABI
 	logBroadcaster log.Broadcaster
 	coordinator    *solidity_vrf_coordinator_interface.VRFCoordinator
@@ -171,8 +171,12 @@ func (lsn *listener) Start() error {
 	})
 }
 
+func (lsn *listener) SetLogger(logger *logger.Logger) {
+	lsn.logger = logger
+}
+
 func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
-	lsn.l.Infow("VRFListener: listening for run requests",
+	lsn.logger.Infow("VRFListener: listening for run requests",
 		"gasLimit", lsn.cfg.EthGasLimitDefault(),
 		"minConfs", minConfs)
 	for {
@@ -194,27 +198,27 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 				}
 				alreadyConsumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db, lb)
 				if err != nil {
-					lsn.l.Errorw("VRFListener: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+					lsn.logger.Errorw("VRFListener: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
 					continue
 				} else if alreadyConsumed {
 					continue
 				}
 				req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
 				if err != nil {
-					lsn.l.Errorw("VRFListener: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
-					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
+					lsn.logger.Errorw("VRFListener: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+					lsn.logger.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
 					continue
 				}
 
 				// Check if the vrf req has already been fulfilled
 				callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
 				if err != nil {
-					lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
+					lsn.logger.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
 				} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
 					// If seedAndBlockNumber is zero then the response has been fulfilled
 					// and we should skip it
-					lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash)
-					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
+					lsn.logger.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash)
+					lsn.logger.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
 					continue
 				}
 
@@ -275,7 +279,7 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 					return nil
 				})
 				if err != nil {
-					lsn.l.Errorw("VRFListener failed to save run", "err", err)
+					lsn.logger.Errorw("VRFListener failed to save run", "err", err)
 				}
 			}
 		}
@@ -283,7 +287,7 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 }
 
 func (lsn *listener) ProcessLog(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, lb log.Broadcast) ([]byte, *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, error) {
-	lsn.l.Infow("VRFListener: received log request",
+	lsn.logger.Infow("VRFListener: received log request",
 		"log", lb.String(),
 		"reqID", hex.EncodeToString(req.RequestID[:]),
 		"keyHash", hex.EncodeToString(req.KeyHash[:]),
@@ -294,13 +298,13 @@ func (lsn *listener) ProcessLog(req *solidity_vrf_coordinator_interface.VRFCoord
 	// Validate the key against the spec
 	inputs, err := GetVRFInputs(lsn.job, req)
 	if err != nil {
-		lsn.l.Errorw("VRFListener: invalid log", "err", err)
+		lsn.logger.Errorw("VRFListener: invalid log", "err", err)
 		return nil, req, err
 	}
 
 	solidityProof, err := GenerateProofResponse(lsn.vrfks, inputs.pk, inputs.seed)
 	if err != nil {
-		lsn.l.Errorw("VRFListener: error generating proof", "err", err)
+		lsn.logger.Errorw("VRFListener: error generating proof", "err", err)
 		return nil, req, err
 	}
 
@@ -309,7 +313,7 @@ func (lsn *listener) ProcessLog(req *solidity_vrf_coordinator_interface.VRFCoord
 			solidityProof[:], // geth expects slice, even if arg is constant-length
 		})
 	if err != nil {
-		lsn.l.Errorw("VRFListener: error building fulfill args", "err", err)
+		lsn.logger.Errorw("VRFListener: error building fulfill args", "err", err)
 		return nil, req, err
 	}
 

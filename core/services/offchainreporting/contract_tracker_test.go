@@ -84,7 +84,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		uni.ec,
 		uni.lb,
 		42,
-		*logger.Default,
+		logger.Default,
 		s.DB,
 		uni.db,
 		chain,

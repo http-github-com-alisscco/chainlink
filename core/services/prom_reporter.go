@@ -21,6 +21,7 @@ import (
 type (
 	promReporter struct {
 		db       *sql.DB
+		logger   *logger.Logger
 		backend  PrometheusBackend
 		newHeads *utils.Mailbox
 		chStop   chan struct{}
@@ -116,6 +117,10 @@ func (pr *promReporter) Close() error {
 	})
 }
 
+func (pr *promReporter) SetLogger(logger *logger.Logger) {
+	pr.logger = logger
+}
+
 // Do nothing on connect, simply wait for the next head
 func (pr *promReporter) Connect(*models.Head) error {
 	return nil
@@ -130,7 +135,7 @@ func (pr *promReporter) OnNewLongestChain(ctx context.Context, head models.Head)
 }
 
 func (pr *promReporter) eventLoop() {
-	logger.Debug("PromReporter: starting event loop")
+	pr.logger.Debug("PromReporter: starting event loop")
 	defer pr.wgDone.Done()
 	ctx, _ := utils.ContextFromChan(pr.chStop)
 	for {
@@ -161,7 +166,7 @@ func (pr *promReporter) reportMetrics(ctx context.Context, head models.Head) {
 	)
 
 	if err != nil {
-		logger.Errorw("Error reporting prometheus metrics", "err", err)
+		pr.logger.Errorw("Error reporting prometheus metrics", "err", err)
 	}
 }
 

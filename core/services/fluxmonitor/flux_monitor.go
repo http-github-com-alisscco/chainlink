@@ -58,7 +58,6 @@ type Service interface {
 	AddJob(models.JobSpec) error
 	RemoveJob(models.JobID)
 	service.Service
-	SetLogger(logger *logger.Logger)
 }
 
 type concreteFluxMonitor struct {
