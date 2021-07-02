@@ -27,8 +27,22 @@ type Logger struct {
 
 // Constants for service names for package specific logging configuration
 var (
-	HeadTracker = "head_tracker"
-	FluxMonitor = "fluxmonitor"
+	HeadTracker          = "head_tracker"
+	FluxMonitor          = "fluxmonitor"
+	JobSubscriber        = "job_subscriber"
+	RunQueue             = "run_queue"
+	BalanceMonitor       = "balance_monitor"
+	TxManager            = "tx_manager"
+	GasUpdater           = "gas_updater"
+	HeadListener         = "head_listener"
+	HeadBroadcaster      = "head_broadcaster"
+	EventBroadcaster     = "event_broadcaster"
+	DatabaseBackup       = "database_backup"
+	PromReporter         = "prom_reporter"
+	SingletonPeerWrapper = "singleton_peer_wrapper"
+	OCRContractTracker   = "ocr_contract_tracker"
+	ExplorerClient       = "explorer_client"
+	StatsPusher          = "stats_pusher"
 )
 
 func GetLogServices() []string {

@@ -3,7 +3,6 @@ package chainlink
 import (
 	"context"
 	stderr "errors"
-	"fmt"
 	"os"
 	"os/signal"
 	"reflect"
@@ -123,6 +122,12 @@ type ChainlinkApplication struct {
 	HealthChecker            health.Checker
 	logger                   *logger.Logger
 
+	// References for SetServiceLogger only
+	gasUpdater     gasupdater.GasUpdater
+	databaseBackup periodicbackup.DatabaseBackup
+	promReporter   service.Service
+	peerWrapper    *offchainreporting.SingletonPeerWrapper
+
 	started     bool
 	startStopMu sync.Mutex
 }
@@ -161,7 +166,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	if store.Config.DatabaseBackupMode() != orm.DatabaseBackupModeNone && store.Config.DatabaseBackupFrequency() > 0 {
 		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", store.Config.DatabaseBackupFrequency())
 
-		databaseBackup := periodicbackup.NewDatabaseBackup(store.Config)
+		databaseBackup = periodicbackup.NewDatabaseBackup(store.Config)
 		subservices = append(subservices, databaseBackup)
 	} else {
 		logger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
@@ -297,10 +302,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		)
 	}
 
+	var peerWrapper *offchainreporting.SingletonPeerWrapper
 	if (config.Dev() && config.P2PListenPort() > 0) || config.FeatureOffchainReporting() {
 		logger.Debug("Off-chain reporting enabled")
-		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore.OCR(), config, store.DB)
-		subservices = append(subservices, concretePW)
+		peerWrapper = offchainreporting.NewSingletonPeerWrapper(keyStore.OCR(), config, store.DB)
+		subservices = append(subservices, peerWrapper)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			store.DB,
 			txManager,
@@ -310,7 +316,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			pipelineRunner,
 			ethClient,
 			logBroadcaster,
-			concretePW,
+			peerWrapper,
 			monitoringEndpoint,
 			config.Chain(),
 			headBroadcaster,
@@ -365,6 +371,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
 		logger:                   globalLogger,
+
+		gasUpdater:     gasUpdater,
+		databaseBackup: databaseBackup,
+		promReporter:   promReporter,
+		peerWrapper:    peerWrapper,
+
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
 		subservices: subservices,
@@ -399,26 +411,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	return app, nil
-}
-
-// SetServiceLogger sets the Logger for a given service and stores the setting in the db
-func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceName string, level zapcore.Level) error {
-	newL, err := app.logger.InitServiceLevelLogger(serviceName, level.String())
-	if err != nil {
-		return err
-	}
-
-	// TODO: Implement other service loggers
-	switch serviceName {
-	case logger.HeadTracker:
-		app.HeadTracker.SetLogger(newL)
-	case logger.FluxMonitor:
-		app.FluxMonitor.SetLogger(newL)
-	default:
-		return fmt.Errorf("no service found with name: %s", serviceName)
-	}
-
-	return app.logger.Orm.SetServiceLogLevel(ctx, serviceName, level)
 }
 
 func setupConfig(config *orm.Config, store *strpkg.Store) {
