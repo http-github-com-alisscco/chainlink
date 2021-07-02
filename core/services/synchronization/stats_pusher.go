@@ -93,8 +93,9 @@ func NewStatsPusher(db *gorm.DB, explorerClient ExplorerClient, afters ...utils.
 			Min: 1 * time.Second,
 			Max: 5 * time.Minute,
 		},
-		done:  make(chan struct{}),
-		waker: make(chan struct{}, 1),
+		done:   make(chan struct{}),
+		waker:  make(chan struct{}, 1),
+		logger: logger.Default,
 	}
 }
 

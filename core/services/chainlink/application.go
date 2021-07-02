@@ -161,7 +161,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	if store.Config.DatabaseBackupMode() != orm.DatabaseBackupModeNone && store.Config.DatabaseBackupFrequency() > 0 {
 		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", store.Config.DatabaseBackupFrequency())
 
-		databaseBackup := periodicbackup.NewDatabaseBackup(store.Config, logger.Default)
+		databaseBackup := periodicbackup.NewDatabaseBackup(store.Config)
 		subservices = append(subservices, databaseBackup)
 	} else {
 		logger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")

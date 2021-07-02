@@ -82,6 +82,7 @@ func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate) *spa
 		chStopJob:        make(chan int32),
 		chStop:           make(chan struct{}),
 		chDone:           make(chan struct{}),
+		logger:           logger.Default,
 	}
 	s.startUnclaimedServicesWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(s.startUnclaimedServices),
@@ -106,8 +107,8 @@ func (js *spawner) Close() error {
 	})
 }
 
-func (jb *spawner) SetLogger(logger *logger.Logger) {
-	jb.logger = logger
+func (js *spawner) SetLogger(logger *logger.Logger) {
+	js.logger = logger
 }
 
 func (js *spawner) destroy() {

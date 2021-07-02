@@ -98,6 +98,7 @@ func NewPromReporter(db *sql.DB, opts ...PrometheusBackend) *promReporter {
 		backend:  backend,
 		newHeads: utils.NewMailbox(1),
 		chStop:   chStop,
+		logger:   logger.Default,
 	}
 }
 

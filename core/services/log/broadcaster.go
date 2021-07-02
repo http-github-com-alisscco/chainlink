@@ -113,6 +113,7 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, highestSavedHe
 	return &broadcaster{
 		orm:              orm,
 		config:           config,
+		logger:           logger.Default,
 		connected:        abool.New(),
 		ethSubscriber:    newEthSubscriber(ethClient, config, chStop),
 		registrations:    newRegistrations(),

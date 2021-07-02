@@ -31,6 +31,7 @@ func (set callbackSet) clone() callbackSet {
 // NewHeadBroadcaster creates a new HeadBroadcaster
 func NewHeadBroadcaster() httypes.HeadBroadcaster {
 	return &headBroadcaster{
+		logger:        logger.Default,
 		callbacks:     make(callbackSet),
 		mailbox:       utils.NewMailbox(1),
 		mutex:         &sync.RWMutex{},

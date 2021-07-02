@@ -91,6 +91,7 @@ func NewRunner(orm ORM, config Config, ethClient eth.Client, txManager TxManager
 		txManager: txManager,
 		chStop:    make(chan struct{}),
 		chDone:    make(chan struct{}),
+		logger:    logger.Default,
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(r.runReaper),

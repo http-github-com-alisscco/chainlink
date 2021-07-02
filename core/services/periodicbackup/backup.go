@@ -66,7 +66,7 @@ type (
 	}
 )
 
-func NewDatabaseBackup(config Config, logger *logger.Logger) DatabaseBackup {
+func NewDatabaseBackup(config Config) DatabaseBackup {
 	dbUrl := config.DatabaseURL()
 	dbBackupUrl := config.DatabaseBackupURL()
 	if dbBackupUrl != nil {
@@ -83,7 +83,7 @@ func NewDatabaseBackup(config Config, logger *logger.Logger) DatabaseBackup {
 	}
 
 	return &databaseBackup{
-		logger,
+		logger.Default,
 		dbUrl,
 		config.DatabaseBackupMode(),
 		config.DatabaseBackupFrequency(),

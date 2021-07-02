@@ -102,6 +102,7 @@ func NewExplorerClient(url *url.URL, accessKey, secret string, loggingArgs ...bo
 		accessKey: accessKey,
 		secret:    secret,
 		logging:   logging,
+		logger:    logger.Default,
 
 		sendText:   make(chan []byte, SendBufferSize),
 		sendBinary: make(chan []byte, SendBufferSize),

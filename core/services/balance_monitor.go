@@ -43,6 +43,7 @@ type (
 func NewBalanceMonitor(store *store.Store, ethKeyStore *keystore.Eth) BalanceMonitor {
 	bm := &balanceMonitor{
 		store:          store,
+		logger:         logger.Default,
 		ethKeyStore:    ethKeyStore,
 		ethBalances:    make(map[gethCommon.Address]*assets.Eth),
 		ethBalancesMtx: new(sync.RWMutex),

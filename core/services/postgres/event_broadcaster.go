@@ -66,6 +66,7 @@ func NewEventBroadcaster(uri url.URL, minReconnectInterval time.Duration, maxRec
 		subscriptions:        make(map[string]map[Subscription]struct{}),
 		chStop:               make(chan struct{}),
 		chDone:               make(chan struct{}),
+		logger:               logger.Default,
 	}
 }
 

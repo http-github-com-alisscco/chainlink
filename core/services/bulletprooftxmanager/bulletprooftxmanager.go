@@ -122,6 +122,7 @@ func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, k
 		chHeads:          make(chan models.Head),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
+		logger:           logger.Default,
 	}
 	if config.EthTxResendAfterThreshold() > 0 {
 		b.ethResender = NewEthResender(db, ethClient, defaultResenderPollInterval, config)
