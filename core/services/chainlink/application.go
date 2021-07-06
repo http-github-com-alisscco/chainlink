@@ -123,7 +123,6 @@ type ChainlinkApplication struct {
 	logger                   *logger.Logger
 
 	// References for SetServiceLogger only
-	gasUpdater     gasupdater.GasUpdater
 	databaseBackup periodicbackup.DatabaseBackup
 	promReporter   service.Service
 	peerWrapper    *offchainreporting.SingletonPeerWrapper
@@ -163,6 +162,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 	subservices = append(subservices, explorerClient, statsPusher)
 
+	var databaseBackup periodicbackup.DatabaseBackup
 	if store.Config.DatabaseBackupMode() != orm.DatabaseBackupModeNone && store.Config.DatabaseBackupFrequency() > 0 {
 		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", store.Config.DatabaseBackupFrequency())
 
@@ -372,7 +372,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		HealthChecker:            healthChecker,
 		logger:                   globalLogger,
 
-		gasUpdater:     gasUpdater,
 		databaseBackup: databaseBackup,
 		promReporter:   promReporter,
 		peerWrapper:    peerWrapper,

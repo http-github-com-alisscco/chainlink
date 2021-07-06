@@ -15,7 +15,6 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 		return err
 	}
 
-	// TODO: Implement other service loggers
 	switch serviceName {
 	case logger.HeadTracker:
 		app.HeadTracker.SetLogger(newL)
@@ -29,12 +28,6 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 		app.balanceMonitor.SetLogger(newL)
 	case logger.TxManager:
 		app.TxManager.SetLogger(newL)
-	case logger.GasUpdater:
-		if app.gasUpdater != nil {
-			app.gasUpdater.SetLogger(newL)
-		}
-	// case logger.HeadListener:
-	// 	app.headListener.SetLogger(newL)
 	case logger.HeadBroadcaster:
 		app.HeadBroadcaster.SetLogger(newL)
 	case logger.EventBroadcaster:
