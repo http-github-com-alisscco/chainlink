@@ -41,7 +41,7 @@ type JobSubscriber interface {
 // jobSubscriber implementation
 type jobSubscriber struct {
 	store            *store.Store
-	logger           *logger.Logger
+	l                *logger.Logger
 	jobSubscriptions map[string]JobSubscription
 	jobsMutex        *sync.RWMutex
 	runManager       RunManager
@@ -107,7 +107,7 @@ func (js *jobSubscriber) Close() error {
 }
 
 func (js *jobSubscriber) SetLogger(logger *logger.Logger) {
-	js.logger = logger
+	js.l = logger
 }
 
 func (js *jobSubscriber) Ready() error {

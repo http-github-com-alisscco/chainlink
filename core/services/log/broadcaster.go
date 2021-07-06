@@ -57,7 +57,7 @@ type (
 		config           Config
 		connected        *abool.AtomicBool
 		latestHeadFromDb *models.Head
-		logger           *logger.Logger
+		l                *logger.Logger
 
 		ethSubscriber *ethSubscriber
 		registrations *registrations
@@ -113,7 +113,7 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, highestSavedHe
 	return &broadcaster{
 		orm:              orm,
 		config:           config,
-		logger:           logger.Default,
+		l:                logger.Default,
 		connected:        abool.New(),
 		ethSubscriber:    newEthSubscriber(ethClient, config, chStop),
 		registrations:    newRegistrations(),
@@ -136,7 +136,7 @@ func (b *broadcaster) Start() error {
 }
 
 func (b *broadcaster) SetLogger(logger *logger.Logger) {
-	b.logger = logger
+	b.l = logger
 }
 
 func (b *broadcaster) LatestHead() *models.Head {
@@ -177,17 +177,17 @@ func (b *broadcaster) awaitInitialSubscribers() {
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
 	if len(opts.LogsWithTopics) == 0 {
-		b.logger.Fatal("Must supply at least 1 Log to Register")
+		b.l.Fatal("Must supply at least 1 Log to Register")
 	}
 
 	wasOverCapacity := b.addSubscriber.Deliver(registration{listener, opts})
 	if wasOverCapacity {
-		b.logger.Error("LogBroadcaster: subscription mailbox is over capacity - dropped the oldest unprocessed subscription")
+		b.l.Error("LogBroadcaster: subscription mailbox is over capacity - dropped the oldest unprocessed subscription")
 	}
 	return func() {
 		wasOverCapacity := b.rmSubscriber.Deliver(registration{listener, opts})
 		if wasOverCapacity {
-			b.logger.Error("LogBroadcaster: subscription removal mailbox is over capacity - dropped the oldest unprocessed removal")
+			b.l.Error("LogBroadcaster: subscription removal mailbox is over capacity - dropped the oldest unprocessed removal")
 		}
 	}
 }
@@ -221,7 +221,7 @@ func (b *broadcaster) startResubscribeLoop() {
 
 	var chRawLogs chan types.Log
 	for {
-		b.logger.Debug("LogBroadcaster: Resubscribing and backfilling logs...")
+		b.l.Debug("LogBroadcaster: Resubscribing and backfilling logs...")
 		addresses, topics := b.registrations.addressesAndTopics()
 
 		newSubscription, abort := b.ethSubscriber.createSubscription(addresses, topics)
@@ -241,7 +241,7 @@ func (b *broadcaster) startResubscribeLoop() {
 				int64(b.registrations.highestNumConfirmations) -
 				int64(b.config.BlockBackfillDepth())
 
-			b.logger.Debugw("LogBroadcaster: Using highest seen head as part of the initial backfill",
+			b.l.Debugw("LogBroadcaster: Using highest seen head as part of the initial backfill",
 				"blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash,
 				"highestNumConfirmations", b.registrations.highestNumConfirmations, "blockBackfillDepth", b.config.BlockBackfillDepth(),
 			)
@@ -275,7 +275,7 @@ func (b *broadcaster) startResubscribeLoop() {
 
 		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription.Err())
 		if err != nil {
-			b.logger.Warnw("LogBroadcaster: error in the event loop - will reconnect", "err", err)
+			b.l.Warnw("LogBroadcaster: error in the event loop - will reconnect", "err", err)
 			b.connected.UnSet()
 			continue
 		} else if !shouldResubscribe {
@@ -292,7 +292,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	debounceResubscribe := time.NewTicker(1 * time.Second)
 	defer debounceResubscribe.Stop()
 
-	b.logger.Debug("LogBroadcaster: starting the event loop")
+	b.l.Debug("LogBroadcaster: starting the event loop")
 	for {
 		select {
 		case rawLog := <-chRawLogs:
@@ -314,7 +314,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 
 		case <-debounceResubscribe.C:
 			if needsResubscribe {
-				b.logger.Debug("LogBroadcaster: returning from the event loop to resubscribe")
+				b.l.Debug("LogBroadcaster: returning from the event loop to resubscribe")
 				return true, nil
 			}
 
@@ -343,7 +343,7 @@ func (b *broadcaster) onNewHeads() {
 		}
 		head, ok := item.(models.Head)
 		if !ok {
-			b.logger.Errorf("expected `models.Head`, got %T", item)
+			b.l.Errorf("expected `models.Head`, got %T", item)
 			continue
 		}
 		latestHead = &head
@@ -353,7 +353,7 @@ func (b *broadcaster) onNewHeads() {
 	// when 'b.newHeads.Notify()' receives more times that the number of items in the mailbox
 	// Some heads may be missed (which is fine for LogBroadcaster logic) but the latest one in a burst will be received
 	if latestHead != nil {
-		b.logger.Debugw("LogBroadcaster: Received head", "blockNumber", latestHead.Number, "blockHash", latestHead.Hash)
+		b.l.Debugw("LogBroadcaster: Received head", "blockNumber", latestHead.Number, "blockHash", latestHead.Hash)
 
 		logs := b.logPool.getLogsToSend(*latestHead, b.registrations.highestNumConfirmations, uint64(b.config.EthFinalityDepth()))
 		b.registrations.sendLogs(logs, b.orm, *latestHead)
@@ -368,10 +368,10 @@ func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
 		}
 		reg, ok := x.(registration)
 		if !ok {
-			b.logger.Errorf("expected `registration`, got %T", x)
+			b.l.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		b.logger.Debugw("LogBroadcaster: Subscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations)
+		b.l.Debugw("LogBroadcaster: Subscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations)
 		needsResub := b.registrations.addSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true
@@ -388,10 +388,10 @@ func (b *broadcaster) onRmSubscribers() (needsResubscribe bool) {
 		}
 		reg, ok := x.(registration)
 		if !ok {
-			b.logger.Errorf("expected `registration`, got %T", x)
+			b.l.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		b.logger.Debugw("LogBroadcaster: Unsubscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations)
+		b.l.Debugw("LogBroadcaster: Unsubscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations)
 		needsResub := b.registrations.removeSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true

@@ -41,7 +41,7 @@ type runQueue struct {
 	stopRequested bool
 
 	runExecutor RunExecutor
-	logger      *logger.Logger
+	l           *logger.Logger
 }
 
 // NewRunQueue initializes a RunQueue.
@@ -67,7 +67,7 @@ func (rq *runQueue) Close() error {
 }
 
 func (rq *runQueue) SetLogger(logger *logger.Logger) {
-	rq.logger = logger
+	rq.l = logger
 }
 
 func (rq *runQueue) Ready() error {
@@ -123,7 +123,7 @@ func (rq *runQueue) Run(runID uuid.UUID) {
 
 		for {
 			if err := rq.runExecutor.Execute(runID); err != nil {
-				rq.logger.Errorw(fmt.Sprint("Error executing run ", id), "error", err)
+				rq.l.Errorw(fmt.Sprint("Error executing run ", id), "error", err)
 			}
 
 			if rq.decrementQueue(id) {

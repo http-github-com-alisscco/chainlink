@@ -94,7 +94,7 @@ type BulletproofTxManager struct {
 	db               *gorm.DB
 	ethClient        eth.Client
 	config           Config
-	logger           *logger.Logger
+	l                *logger.Logger
 	keyStore         KeyStore
 	advisoryLocker   postgres.AdvisoryLocker
 	eventBroadcaster postgres.EventBroadcaster
@@ -122,7 +122,7 @@ func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, k
 		chHeads:          make(chan models.Head),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
-		logger:           logger.Default,
+		l:                logger.Default,
 	}
 	if config.EthTxResendAfterThreshold() > 0 {
 		b.ethResender = NewEthResender(db, ethClient, defaultResenderPollInterval, config)
@@ -146,7 +146,7 @@ func (b *BulletproofTxManager) Start() (merr error) {
 			return errors.Wrap(err, "BulletproofTxManager: failed to load keys")
 		}
 
-		b.logger.Debugw("BulletproofTxManager: booting", "keys", keys)
+		b.l.Debugw("BulletproofTxManager: booting", "keys", keys)
 
 		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys, b.gasEstimator)
 		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys, b.gasEstimator)
@@ -196,7 +196,7 @@ func (b *BulletproofTxManager) Close() (merr error) {
 }
 
 func (b *BulletproofTxManager) SetLogger(logger *logger.Logger) {
-	b.logger = logger
+	b.l = logger
 }
 
 func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
@@ -211,25 +211,25 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 		case head := <-b.chHeads:
 			ec.mb.Deliver(head)
 		case <-b.chStop:
-			b.logger.ErrorIfCalling(eb.Close)
-			b.logger.ErrorIfCalling(ec.Close)
+			b.l.ErrorIfCalling(eb.Close)
+			b.l.ErrorIfCalling(ec.Close)
 			return
 		case <-keysChanged:
 			keys, err := b.keyStore.AllKeys()
 			if err != nil {
-				b.logger.Fatalf("BulletproofTxManager: expected keystore to be unlocked: %s", err.Error())
+				b.l.Fatalf("BulletproofTxManager: expected keystore to be unlocked: %s", err.Error())
 			}
 
-			b.logger.Debugw("BulletproofTxManager: keys changed, reloading", "keys", keys)
+			b.l.Debugw("BulletproofTxManager: keys changed, reloading", "keys", keys)
 
-			b.logger.ErrorIfCalling(eb.Close)
-			b.logger.ErrorIfCalling(ec.Close)
+			b.l.ErrorIfCalling(eb.Close)
+			b.l.ErrorIfCalling(ec.Close)
 
 			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys, b.gasEstimator)
 			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys, b.gasEstimator)
 
-			b.logger.ErrorIfCalling(eb.Start)
-			b.logger.ErrorIfCalling(ec.Start)
+			b.l.ErrorIfCalling(eb.Start)
+			b.l.ErrorIfCalling(ec.Start)
 		}
 	}
 }
@@ -244,11 +244,11 @@ func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head model
 		select {
 		case b.chHeads <- head:
 		case <-ctx.Done():
-			b.logger.Errorw("BulletproofTxManager: timed out handling head", "blockNum", head.Number, "ctxErr", ctx.Err())
+			b.l.Errorw("BulletproofTxManager: timed out handling head", "blockNum", head.Number, "ctxErr", ctx.Err())
 		}
 	})
 	if !ok {
-		b.logger.Debugw("BulletproofTxManager: not started; ignoring head", "head", head, "state", b.State())
+		b.l.Debugw("BulletproofTxManager: not started; ignoring head", "head", head, "state", b.State())
 	}
 }
 
@@ -309,7 +309,7 @@ RETURNING "eth_txes".*
 
 		if res.RowsAffected == 0 {
 			err = errors.Errorf("wallet is out of eth: %s", fromAddress.Hex())
-			b.logger.Warnw(err.Error(),
+			b.l.Warnw(err.Error(),
 				"fromAddress", fromAddress,
 				"toAddress", toAddress,
 				"payload", "0x"+hex.EncodeToString(payload),
@@ -323,7 +323,7 @@ RETURNING "eth_txes".*
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to prune eth_txes")
 		}
 		if pruned > 0 {
-			b.logger.Warnw(fmt.Sprintf("BulletproofTxManager: dropped %d old transactions from transaction queue", pruned), "fromAddress", fromAddress, "toAddress", toAddress, "meta", meta, "subject", strategy.Subject(), "replacementID", etx.ID)
+			b.l.Warnw(fmt.Sprintf("BulletproofTxManager: dropped %d old transactions from transaction queue", pruned), "fromAddress", fromAddress, "toAddress", toAddress, "meta", meta, "subject", strategy.Subject(), "replacementID", etx.ID)
 		}
 		return nil
 	})

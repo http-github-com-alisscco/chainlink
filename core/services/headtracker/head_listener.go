@@ -43,7 +43,7 @@ type HeadListener struct {
 	connected        bool
 	sleeper          utils.Sleeper
 
-	log      *logger.Logger
+	l        *logger.Logger
 	muLogger sync.RWMutex
 
 	chStop chan struct{}
@@ -67,7 +67,7 @@ func NewHeadListener(l *logger.Logger,
 		config:    config,
 		ethClient: ethClient,
 		sleeper:   sleeper,
-		log:       l,
+		l:         l,
 		chStop:    chStop,
 		wgDone:    wgDone,
 	}
@@ -77,13 +77,13 @@ func NewHeadListener(l *logger.Logger,
 func (hl *HeadListener) SetLogger(logger *logger.Logger) {
 	hl.muLogger.Lock()
 	defer hl.muLogger.Unlock()
-	hl.log = logger
+	hl.l = logger
 }
 
 func (hl *HeadListener) logger() *logger.Logger {
 	hl.muLogger.RLock()
 	defer hl.muLogger.RUnlock()
-	return hl.log
+	return hl.l
 }
 
 func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header models.Head) error, connected func()) {

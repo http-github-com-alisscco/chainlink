@@ -29,7 +29,7 @@ type (
 
 	balanceMonitor struct {
 		store          *store.Store
-		logger         *logger.Logger
+		l              *logger.Logger
 		ethKeyStore    *keystore.Eth
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
@@ -43,7 +43,7 @@ type (
 func NewBalanceMonitor(store *store.Store, ethKeyStore *keystore.Eth) BalanceMonitor {
 	bm := &balanceMonitor{
 		store:          store,
-		logger:         logger.Default,
+		l:              logger.Default,
 		ethKeyStore:    ethKeyStore,
 		ethBalances:    make(map[gethCommon.Address]*assets.Eth),
 		ethBalancesMtx: new(sync.RWMutex),
@@ -64,7 +64,7 @@ func (bm *balanceMonitor) Start() error {
 }
 
 func (bm *balanceMonitor) SetLogger(logger *logger.Logger) {
-	bm.logger = logger
+	bm.l = logger
 }
 
 // Close shuts down the BalanceMonitor, should not be used after this
@@ -89,7 +89,7 @@ func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head models.Head)
 }
 
 func (bm *balanceMonitor) checkBalance(head *models.Head) {
-	bm.logger.Debugw("BalanceMonitor: signalling balance worker")
+	bm.l.Debugw("BalanceMonitor: signalling balance worker")
 	bm.sleeperTask.WakeUp()
 }
 
@@ -109,12 +109,12 @@ func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Ad
 	}
 
 	if oldBal == nil {
-		bm.logger.Infow(fmt.Sprintf("ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
+		bm.l.Infow(fmt.Sprintf("ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
 		return
 	}
 
 	if ethBal.Cmp(oldBal) != 0 {
-		bm.logger.Infow(fmt.Sprintf("New ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
+		bm.l.Infow(fmt.Sprintf("New ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
 	}
 }
 

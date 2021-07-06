@@ -30,7 +30,7 @@ var (
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
-	log             *logger.Logger
+	l               *logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	store           *strpkg.Store
 
@@ -60,7 +60,7 @@ func NewHeadTracker(
 	return &HeadTracker{
 		store:           store,
 		headBroadcaster: headBroadcaster,
-		log:             l,
+		l:               l,
 		backfillMB:      *utils.NewMailbox(1),
 		samplingMB:      *utils.NewMailbox(1),
 		chStop:          chStop,
@@ -74,14 +74,14 @@ func NewHeadTracker(
 func (ht *HeadTracker) SetLogger(logger *logger.Logger) {
 	ht.muLogger.Lock()
 	defer ht.muLogger.Unlock()
-	ht.log = logger
+	ht.l = logger
 	ht.headListener.SetLogger(logger)
 }
 
 func (ht *HeadTracker) logger() *logger.Logger {
 	ht.muLogger.RLock()
 	defer ht.muLogger.RUnlock()
-	return ht.log
+	return ht.l
 }
 
 // Start retrieves the last persisted block number from the HeadTracker,

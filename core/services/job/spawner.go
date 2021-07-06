@@ -38,7 +38,7 @@ type (
 	spawner struct {
 		orm                          ORM
 		config                       Config
-		logger                       *logger.Logger
+		l                            *logger.Logger
 		jobTypeDelegates             map[Type]Delegate
 		startUnclaimedServicesWorker utils.SleeperTask
 		activeJobs                   map[int32]activeJob
@@ -82,7 +82,7 @@ func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate) *spa
 		chStopJob:        make(chan int32),
 		chStop:           make(chan struct{}),
 		chDone:           make(chan struct{}),
-		logger:           logger.Default,
+		l:                logger.Default,
 	}
 	s.startUnclaimedServicesWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(s.startUnclaimedServices),
@@ -108,7 +108,7 @@ func (js *spawner) Close() error {
 }
 
 func (js *spawner) SetLogger(logger *logger.Logger) {
-	js.logger = logger
+	js.l = logger
 }
 
 func (js *spawner) destroy() {
@@ -116,7 +116,7 @@ func (js *spawner) destroy() {
 
 	err := js.startUnclaimedServicesWorker.Stop()
 	if err != nil {
-		js.logger.Error(err)
+		js.l.Error(err)
 	}
 }
 
@@ -128,7 +128,7 @@ func (js *spawner) runLoop() {
 	var newJobEvents <-chan postgres.Event
 	newJobs, err := js.orm.ListenForNewJobs()
 	if err != nil {
-		js.logger.Warn("Job spawner could not subscribe to new job events, falling back to polling")
+		js.l.Warn("Job spawner could not subscribe to new job events, falling back to polling")
 	} else {
 		defer newJobs.Close()
 		newJobEvents = newJobs.Events()
@@ -136,7 +136,7 @@ func (js *spawner) runLoop() {
 	var pgDeletedJobEvents <-chan postgres.Event
 	deletedJobs, err := js.orm.ListenForDeletedJobs()
 	if err != nil {
-		js.logger.Warn("Job spawner could not subscribe to deleted job events")
+		js.l.Warn("Job spawner could not subscribe to deleted job events")
 	} else {
 		defer deletedJobs.Close()
 		pgDeletedJobEvents = deletedJobs.Events()
@@ -185,7 +185,7 @@ func (js *spawner) startUnclaimedServices() {
 
 	specs, err := js.orm.ClaimUnclaimedJobs(ctx)
 	if err != nil {
-		js.logger.Errorf("Couldn't fetch unclaimed jobs: %v", err)
+		js.l.Errorf("Couldn't fetch unclaimed jobs: %v", err)
 		return
 	}
 
@@ -194,29 +194,29 @@ func (js *spawner) startUnclaimedServices() {
 
 	for _, spec := range specs {
 		if _, exists := js.activeJobs[spec.ID]; exists {
-			js.logger.Warnw("Job spawner ORM attempted to claim locally-claimed job, skipping", "jobID", spec.ID)
+			js.l.Warnw("Job spawner ORM attempted to claim locally-claimed job, skipping", "jobID", spec.ID)
 			continue
 		}
 
 		delegate, exists := js.jobTypeDelegates[spec.Type]
 		if !exists {
-			js.logger.Errorw("Job type has not been registered with job.Spawner", "type", spec.Type, "jobID", spec.ID)
+			js.l.Errorw("Job type has not been registered with job.Spawner", "type", spec.Type, "jobID", spec.ID)
 			continue
 		}
 		services, err := delegate.ServicesForSpec(spec)
 		if err != nil {
-			js.logger.Errorw("Error creating services for job", "jobID", spec.ID, "error", err)
+			js.l.Errorw("Error creating services for job", "jobID", spec.ID, "error", err)
 			js.orm.RecordError(ctx, spec.ID, err.Error())
 			continue
 		}
 
-		js.logger.Debugw("JobSpawner: Starting services for job", "jobID", spec.ID, "count", len(services))
+		js.l.Debugw("JobSpawner: Starting services for job", "jobID", spec.ID, "count", len(services))
 
 		aj := activeJob{delegate: delegate, spec: spec}
 		for _, service := range services {
 			err := service.Start()
 			if err != nil {
-				js.logger.Errorw("Error creating service for job", "jobID", spec.ID, "error", err)
+				js.l.Errorw("Error creating service for job", "jobID", spec.ID, "error", err)
 				continue
 			}
 			aj.services = append(aj.services, service)
@@ -224,7 +224,7 @@ func (js *spawner) startUnclaimedServices() {
 		js.activeJobs[spec.ID] = aj
 	}
 
-	js.logger.Infow("JobSpawner: all jobs running", "count", len(specs))
+	js.l.Infow("JobSpawner: all jobs running", "count", len(specs))
 }
 
 func (js *spawner) stopAllServices() {
@@ -253,9 +253,9 @@ func (js *spawner) stopService(jobID int32) {
 		service := aj.services[i]
 		err := service.Close()
 		if err != nil {
-			js.logger.Errorw("Error stopping job service", "jobID", jobID, "error", err, "subservice", i, "serviceType", reflect.TypeOf(service))
+			js.l.Errorw("Error stopping job service", "jobID", jobID, "error", err, "subservice", i, "serviceType", reflect.TypeOf(service))
 		} else {
-			js.logger.Infow("Stopped job service", "jobID", jobID, "subservice", i, "serviceType", reflect.TypeOf(service))
+			js.l.Infow("Stopped job service", "jobID", jobID, "subservice", i, "serviceType", reflect.TypeOf(service))
 		}
 	}
 	delete(js.activeJobs, jobID)
@@ -264,7 +264,7 @@ func (js *spawner) stopService(jobID int32) {
 func (js *spawner) checkForDeletedJobs(ctx context.Context) {
 	jobIDs, err := js.orm.CheckForDeletedJobs(ctx)
 	if err != nil {
-		js.logger.Errorw("failed to CheckForDeletedJobs", "err", err)
+		js.l.Errorw("failed to CheckForDeletedJobs", "err", err)
 		return
 	}
 	for _, jobID := range jobIDs {
@@ -273,7 +273,7 @@ func (js *spawner) checkForDeletedJobs(ctx context.Context) {
 }
 
 func (js *spawner) unloadDeletedJob(ctx context.Context, jobID int32) {
-	js.logger.Infow("Unloading deleted job", "jobID", jobID)
+	js.l.Infow("Unloading deleted job", "jobID", jobID)
 
 	js.stopService(jobID)
 
@@ -281,7 +281,7 @@ func (js *spawner) unloadDeletedJob(ctx context.Context, jobID int32) {
 	defer cancel()
 
 	if err := js.orm.UnclaimJob(ctx, jobID); err != nil {
-		js.logger.Errorw("Unexpected error unclaiming job", "jobID", jobID)
+		js.l.Errorw("Unexpected error unclaiming job", "jobID", jobID)
 	}
 }
 
@@ -289,7 +289,7 @@ func (js *spawner) handlePGDeleteEvent(ctx context.Context, ev postgres.Event) {
 	jobIDString := ev.Payload
 	jobID64, err := strconv.ParseInt(jobIDString, 10, 32)
 	if err != nil {
-		js.logger.Errorw("Unexpected error decoding deleted job event payload, expected 32-bit integer", "payload", jobIDString, "channel", ev.Channel)
+		js.l.Errorw("Unexpected error decoding deleted job event payload, expected 32-bit integer", "payload", jobIDString, "channel", ev.Channel)
 	}
 	jobID := int32(jobID64)
 	js.unloadDeletedJob(ctx, jobID)
@@ -298,7 +298,7 @@ func (js *spawner) handlePGDeleteEvent(ctx context.Context, ev postgres.Event) {
 func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (int32, error) {
 	delegate, exists := js.jobTypeDelegates[spec.Type]
 	if !exists {
-		js.logger.Errorf("job type '%s' has not been registered with the job.Spawner", spec.Type)
+		js.l.Errorf("job type '%s' has not been registered with the job.Spawner", spec.Type)
 		return 0, errors.Errorf("job type '%s' has not been registered with the job.Spawner", spec.Type)
 	}
 
@@ -308,13 +308,13 @@ func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (i
 	spec.Name = name
 	err := js.orm.CreateJob(ctx, &spec, spec.Pipeline)
 	if err != nil {
-		js.logger.Errorw("Error creating job", "type", spec.Type, "error", err)
+		js.l.Errorw("Error creating job", "type", spec.Type, "error", err)
 		return 0, err
 	}
 
 	delegate.OnJobCreated(spec)
 
-	js.logger.Infow("Created job", "type", spec.Type, "jobID", spec.ID)
+	js.l.Infow("Created job", "type", spec.Type, "jobID", spec.ID)
 	return spec.ID, err
 }
 
@@ -341,13 +341,13 @@ func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
 	defer cancel()
 	err := js.orm.DeleteJob(ctx, jobID)
 	if err != nil {
-		js.logger.Errorw("Error deleting job", "jobID", jobID, "error", err)
+		js.l.Errorw("Error deleting job", "jobID", jobID, "error", err)
 		return err
 	}
 
 	aj.delegate.OnJobDeleted(aj.spec)
 
-	js.logger.Infow("Deleted job", "jobID", jobID)
+	js.l.Infow("Deleted job", "jobID", jobID)
 
 	return nil
 }

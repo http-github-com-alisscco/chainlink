@@ -65,7 +65,7 @@ type concreteFluxMonitor struct {
 	store          *store.Store
 	runManager     RunManager
 	logBroadcaster log.Broadcaster
-	log            *logger.Logger
+	l              *logger.Logger
 	checkerFactory DeviationCheckerFactory
 	chAdd          chan addEntry
 	chRemove       chan models.JobID
@@ -111,13 +111,13 @@ func New(
 func (fm *concreteFluxMonitor) SetLogger(logger *logger.Logger) {
 	fm.muLogger.Lock()
 	defer fm.muLogger.Unlock()
-	fm.log = logger
+	fm.l = logger
 }
 
 func (fm *concreteFluxMonitor) logger() *logger.Logger {
 	fm.muLogger.RLock()
 	defer fm.muLogger.RUnlock()
-	return fm.log
+	return fm.l
 }
 
 func (fm *concreteFluxMonitor) Start() error {

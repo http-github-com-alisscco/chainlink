@@ -41,7 +41,7 @@ type eventBroadcaster struct {
 	chStop               chan struct{}
 	chDone               chan struct{}
 	utils.StartStopOnce
-	logger *logger.Logger
+	l *logger.Logger
 }
 
 var _ EventBroadcaster = (*eventBroadcaster)(nil)
@@ -66,7 +66,7 @@ func NewEventBroadcaster(uri url.URL, minReconnectInterval time.Duration, maxRec
 		subscriptions:        make(map[string]map[Subscription]struct{}),
 		chStop:               make(chan struct{}),
 		chDone:               make(chan struct{}),
-		logger:               logger.Default,
+		l:                    logger.Default,
 	}
 }
 
@@ -86,13 +86,13 @@ func (b *eventBroadcaster) Start() error {
 			// operators' sanity.
 			switch ev {
 			case pq.ListenerEventConnected:
-				b.logger.Debug("Postgres event broadcaster: connected")
+				b.l.Debug("Postgres event broadcaster: connected")
 			case pq.ListenerEventDisconnected:
-				b.logger.Warnw("Postgres event broadcaster: disconnected, trying to reconnect...", "error", err)
+				b.l.Warnw("Postgres event broadcaster: disconnected, trying to reconnect...", "error", err)
 			case pq.ListenerEventReconnected:
-				b.logger.Debug("Postgres event broadcaster: reconnected")
+				b.l.Debug("Postgres event broadcaster: reconnected")
 			case pq.ListenerEventConnectionAttemptFailed:
-				b.logger.Warnw("Postgres event broadcaster: reconnect attempt failed, trying again...", "error", err)
+				b.l.Warnw("Postgres event broadcaster: reconnect attempt failed, trying again...", "error", err)
 			}
 		})
 
@@ -119,7 +119,7 @@ func (b *eventBroadcaster) Close() error {
 }
 
 func (b *eventBroadcaster) SetLogger(logger *logger.Logger) {
-	b.logger = logger
+	b.l = logger
 }
 
 func (b *eventBroadcaster) runLoop() {
@@ -135,7 +135,7 @@ func (b *eventBroadcaster) runLoop() {
 			} else if notification == nil {
 				continue
 			}
-			b.logger.Debugw("Postgres event broadcaster: received notification",
+			b.l.Debugw("Postgres event broadcaster: received notification",
 				"channel", notification.Channel,
 				"payload", notification.Extra,
 			)
@@ -199,7 +199,7 @@ func (b *eventBroadcaster) removeSubscription(sub Subscription) {
 	if len(b.subscriptions[sub.ChannelName()]) == 0 {
 		err := b.listener.Unlisten(sub.ChannelName())
 		if err != nil {
-			b.logger.Errorw("Postgres event broadcaster: failed to unsubscribe", "error", err)
+			b.l.Errorw("Postgres event broadcaster: failed to unsubscribe", "error", err)
 		}
 		delete(b.subscriptions, sub.ChannelName())
 	}

@@ -43,7 +43,7 @@ type Runner interface {
 type runner struct {
 	orm             ORM
 	config          Config
-	logger          *logger.Logger
+	l               *logger.Logger
 	ethClient       eth.Client
 	txManager       TxManager
 	runReaperWorker utils.SleeperTask
@@ -91,7 +91,7 @@ func NewRunner(orm ORM, config Config, ethClient eth.Client, txManager TxManager
 		txManager: txManager,
 		chStop:    make(chan struct{}),
 		chDone:    make(chan struct{}),
-		logger:    logger.Default,
+		l:         logger.Default,
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(r.runReaper),
@@ -115,13 +115,13 @@ func (r *runner) Close() error {
 }
 
 func (r *runner) SetLogger(logger *logger.Logger) {
-	r.logger = logger
+	r.l = logger
 }
 
 func (r *runner) destroy() {
 	err := r.runReaperWorker.Stop()
 	if err != nil {
-		r.logger.Error(err)
+		r.l.Error(err)
 	}
 }
 
@@ -222,7 +222,7 @@ func (r *runner) ExecuteRun(
 		go func(taskRun *memoryTaskRun) {
 			defer func() {
 				if err := recover(); err != nil {
-					r.logger.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
+					r.l.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
 
 					t := time.Now()
 					scheduler.report(todo, TaskRunResult{
@@ -361,6 +361,6 @@ func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string,
 func (r *runner) runReaper() {
 	err := r.orm.DeleteRunsOlderThan(r.config.JobPipelineReaperThreshold())
 	if err != nil {
-		r.logger.Errorw("Pipeline run reaper failed", "error", err)
+		r.l.Errorw("Pipeline run reaper failed", "error", err)
 	}
 }

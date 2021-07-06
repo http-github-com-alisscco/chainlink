@@ -28,7 +28,7 @@ type (
 		keyStore *keystore.OCR
 		config   *orm.Config
 		db       *gorm.DB
-		logger   *logger.Logger
+		l        *logger.Logger
 
 		pstoreWrapper *Pstorewrapper
 		PeerID        p2pkey.PeerID
@@ -164,5 +164,5 @@ func (p *SingletonPeerWrapper) Close() error {
 }
 
 func (p *SingletonPeerWrapper) SetLogger(logger *logger.Logger) {
-	p.logger = logger
+	p.l = logger
 }
