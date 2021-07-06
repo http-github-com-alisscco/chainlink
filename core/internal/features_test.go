@@ -328,7 +328,7 @@ func TestIntegration_RunLog(t *testing.T) {
 func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	t.Cleanup(cfgCleanup)
-	config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
+	config.Set("MIN_INCOMING_CONFIRMATIONS", 30)
 
 	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 	defer assertMockCalls()
@@ -368,7 +368,7 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	logs <- log
 	runs := cltest.WaitForRuns(t, jb, app.Store, 1)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
-	assert.Equal(t, uint32(6), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+	assert.Equal(t, uint32(30), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// Same requestID log again should result in a doubling of incoming confs
 	log.TxHash = cltest.NewHash()
@@ -377,7 +377,7 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	logs <- log
 	runs = cltest.WaitForRuns(t, jb, app.Store, 2)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
-	assert.Equal(t, uint32(6)*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+	assert.Equal(t, uint32(30)*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// Same requestID log again should result in a doubling of incoming confs
 	log.TxHash = cltest.NewHash()
@@ -386,15 +386,24 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	logs <- log
 	runs = cltest.WaitForRuns(t, jb, app.Store, 3)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
-	assert.Equal(t, uint32(6)*2*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+	assert.Equal(t, uint32(30)*2*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+
+	// Should be capped at 200
+	log.TxHash = cltest.NewHash()
+	log.BlockHash = cltest.NewHash()
+	log.BlockNumber = 103
+	logs <- log
+	runs = cltest.WaitForRuns(t, jb, app.Store, 4)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
+	assert.Equal(t, uint32(200), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// New requestID should be back to original
 	randLog.RequestID = cltest.NewHash()
 	newReqLog := cltest.NewRandomnessRequestLog(t, randLog, sender, 104)
 	logs <- newReqLog
-	runs = cltest.WaitForRuns(t, jb, app.Store, 4)
+	runs = cltest.WaitForRuns(t, jb, app.Store, 5)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
-	assert.Equal(t, uint32(6), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+	assert.Equal(t, uint32(30), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 }
 
 func TestIntegration_StartAt(t *testing.T) {
@@ -1064,7 +1073,7 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.Store.ORM.DB, app.Store.Config)
+		pipelineORM := pipeline.NewORM(app.Store.DB)
 		jobORM := job.NewORM(app.Store.ORM.DB, app.Store.Config, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{})
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
@@ -1937,7 +1946,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	eventBroadcaster.Start()
 	defer eventBroadcaster.Close()
 
-	pipelineORM := pipeline.NewORM(store.ORM.DB, config)
+	pipelineORM := pipeline.NewORM(store.DB)
 	jobORM := job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
 	directRequestSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml"))
