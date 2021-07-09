@@ -39,9 +39,12 @@ const (
 )
 
 type JobProposal struct {
-	ID             int64
-	Spec           string
-	Status         JobProposalStatus
+	ID int64
+	// UUID is the unique id of the proposal in FMS.
+	UUID   uuid.UUID
+	Spec   string
+	Status JobProposalStatus
+	// JobID is the external job id.
 	JobID          uuid.NullUUID
 	FeedsManagerID int64
 	CreatedAt      time.Time

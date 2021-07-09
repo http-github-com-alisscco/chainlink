@@ -68,6 +68,29 @@ func (_m *Service) CreateJobProposal(jp *feeds.JobProposal) (int64, error) {
 	return r0, r1
 }
 
+// GetJobProposal provides a mock function with given fields: id
+func (_m *Service) GetJobProposal(id int64) (*feeds.JobProposal, error) {
+	ret := _m.Called(id)
+
+	var r0 *feeds.JobProposal
+	if rf, ok := ret.Get(0).(func(int64) *feeds.JobProposal); ok {
+		r0 = rf(id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*feeds.JobProposal)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int64) error); ok {
+		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetManager provides a mock function with given fields: id
 func (_m *Service) GetManager(id int64) (*feeds.FeedsManager, error) {
 	ret := _m.Called(id)
@@ -133,6 +156,20 @@ func (_m *Service) RegisterManager(ms *feeds.FeedsManager) (int64, error) {
 	}
 
 	return r0, r1
+}
+
+// RejectJobProposal provides a mock function with given fields: id
+func (_m *Service) RejectJobProposal(id int64) error {
+	ret := _m.Called(id)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(int64) error); ok {
+		r0 = rf(id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // Start provides a mock function with given fields:
